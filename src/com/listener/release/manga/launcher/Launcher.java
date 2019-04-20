@@ -6,6 +6,6 @@ public class Launcher {
 
 	public static void main(String[] args) {
 		MangaListenerCore mangaListenerCore = new MangaListenerCore();
-		mangaListenerCore.getMangaList();
+		mangaListenerCore.getMangaChapter("4e70ea10c092255ef7004aa2");
 	}
 }
