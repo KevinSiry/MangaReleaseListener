@@ -1,6 +1,8 @@
 package com.listener.release.manga.core;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -25,12 +27,7 @@ public class MangaListenerCore {
 			con.setRequestMethod("GET");
 
 			BufferedReader bufferReader = new BufferedReader(new InputStreamReader(con.getInputStream()));
-			String inputLine;
-			StringBuffer content = new StringBuffer();
-			while ((inputLine = bufferReader.readLine()) != null) {
-				content.append(inputLine);
-			}
-			bufferReader.close();
+			StringBuffer content = loadFile(bufferReader);
 
 			if (generateJsonMangaList(content)) {
 				return new MangaListOutput(MangaListStatus.SUCCESS, "GetMangaList done successfully.");
@@ -53,18 +50,48 @@ public class MangaListenerCore {
 			con.setRequestMethod("GET");
 
 			BufferedReader bufferReader = new BufferedReader(new InputStreamReader(con.getInputStream()));
-			String inputLine;
-			StringBuffer content = new StringBuffer();
-			while ((inputLine = bufferReader.readLine()) != null) {
-				content.append(inputLine);
-			}
-			bufferReader.close();
+			StringBuffer content = loadFile(bufferReader);
 
 			getLastChapter(content);
 
 			return new MangaChapterOutput(MangaChapterStatus.SUCCESS, "getMangaChapter done successfully.");
 		} catch (Exception e) {
 			return new MangaChapterOutput(MangaChapterStatus.FAIL, "getMangaChapter failed : " + e.getMessage());
+		}
+	}
+
+	public String getMangaId(String i_mangaName) {
+		try {
+			File jsonMangaFile = new File("mangalist.json");
+			BufferedReader bufferReader = new BufferedReader(new FileReader(jsonMangaFile));
+			StringBuffer content = loadFile(bufferReader);
+
+			JSONObject jsonData = new JSONObject(content.toString());
+			JSONArray jsonArray = (JSONArray) jsonData.getJSONArray("manga");
+
+			for (int i = 0; i < jsonArray.length(); i++) {
+				if (jsonArray.getJSONObject(i).getString("t").equals(i_mangaName)) {
+					return jsonArray.getJSONObject(i).getString("i");
+				}
+			}
+		} catch (Exception e) {
+			return null;
+		}
+		return null;
+	}
+
+	private StringBuffer loadFile(BufferedReader i_bufferReader) {
+		try {
+			String inputLine;
+			StringBuffer content = new StringBuffer();
+			while ((inputLine = i_bufferReader.readLine()) != null) {
+				content.append(inputLine);
+			}
+			i_bufferReader.close();
+
+			return content;
+		} catch (Exception e) {
+			return null;
 		}
 	}
 
