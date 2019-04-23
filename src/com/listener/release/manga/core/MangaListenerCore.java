@@ -3,81 +3,81 @@ package com.listener.release.manga.core;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
+import java.io.InputStream;
 import java.net.URL;
+import java.net.URLConnection;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
 
 import com.listener.release.manga.commonmethods.InputChecking;
-import com.listener.release.manga.output.MangaChapterOutput;
-import com.listener.release.manga.output.MangaChapterOutput.MangaChapterStatus;
-import com.listener.release.manga.output.MangaListOutput;
-import com.listener.release.manga.output.MangaListOutput.MangaListStatus;
 
 public class MangaListenerCore {
 
-	public MangaListOutput getMangaList() {
+	public String getLastChapter(String i_mangaName) {
+		InputChecking.checkStringInput(i_mangaName, true, true, true, "i_mangaName cannot be null.",
+				"i_mangaName cannot be empty.");
+
 		try {
-			URL url = new URL("https://www.mangaeden.com/api/list/0/");
-			HttpURLConnection con = (HttpURLConnection) url.openConnection();
-			con.setRequestMethod("GET");
-
-			BufferedReader bufferReader = new BufferedReader(new InputStreamReader(con.getInputStream()));
-			StringBuffer content = loadFile(bufferReader);
-
-			if (generateJsonMangaList(content)) {
-				return new MangaListOutput(MangaListStatus.SUCCESS, "GetMangaList done successfully.");
-			} else {
-				return new MangaListOutput(MangaListStatus.FAIL,
-						"GetMangaList failed : error in Manga list json generation.");
+			String m_title = null;
+			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
+			DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
+			Document doc = dBuilder.parse(readWebPage(i_mangaName));
+			Element racine = doc.getDocumentElement();
+			Node racineNoeud = racine.getFirstChild();
+			if (racineNoeud.getNodeType() == Node.ELEMENT_NODE) {
+				Element firstNoeud = (Element) racineNoeud;
+				Node nNode = firstNoeud.getElementsByTagName("item").item(0);
+				if (nNode.getNodeType() == Node.ELEMENT_NODE) {
+					Element eElement = (Element) nNode;
+					m_title = eElement.getElementsByTagName("title").item(0).getTextContent();
+				}
 			}
+
+			String[] testTable = m_title.split("\\.");
+
+			return testTable[testTable.length - 1];
 		} catch (Exception e) {
-			return new MangaListOutput(MangaListStatus.FAIL, "GetMangaList failed : " + e.getMessage());
+			e.printStackTrace();
+			throw new RuntimeException(e.getMessage());
 		}
 	}
 
-	public MangaChapterOutput getMangaChapter(String i_idManga) {
-		InputChecking.checkStringInput(i_idManga, true, true, true, "i_idManga cannot be null.",
-				"i_idManga cannot be empty.");
-
+	public InputStream readWebPage(String i_mangaName) {
+		InputChecking.checkStringInput(i_mangaName, true, true, true, "i_mangaName cannot be null.",
+				"i_mangaName cannot be empty.");
 		try {
-			URL url = new URL("https://www.mangaeden.com/api/manga/" + i_idManga + "/");
-			HttpURLConnection con = (HttpURLConnection) url.openConnection();
-			con.setRequestMethod("GET");
+			URL url = new URL("http://fanfox.net/rss/" + i_mangaName + ".xml");
+			URLConnection urlConnection = url.openConnection();
+			urlConnection.setRequestProperty("User-Agent",
+					"Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.95 Safari/537.11");
 
-			BufferedReader bufferReader = new BufferedReader(new InputStreamReader(con.getInputStream()));
-			StringBuffer content = loadFile(bufferReader);
-
-			getLastChapter(content);
-
-			return new MangaChapterOutput(MangaChapterStatus.SUCCESS, "getMangaChapter done successfully.");
+			return urlConnection.getInputStream();
 		} catch (Exception e) {
-			return new MangaChapterOutput(MangaChapterStatus.FAIL, "getMangaChapter failed : " + e.getMessage());
+			throw new RuntimeException(e.getMessage());
 		}
 	}
-
-	public String getMangaId(String i_mangaName) {
+	
+	public JSONArray getUserMangaList() {
 		try {
 			File jsonMangaFile = new File("mangalist.json");
 			BufferedReader bufferReader = new BufferedReader(new FileReader(jsonMangaFile));
 			StringBuffer content = loadFile(bufferReader);
 
 			JSONObject jsonData = new JSONObject(content.toString());
-			JSONArray jsonArray = (JSONArray) jsonData.getJSONArray("manga");
+			JSONArray jsonArray = (JSONArray) jsonData.getJSONArray("manga_list");
 
-			for (int i = 0; i < jsonArray.length(); i++) {
-				if (jsonArray.getJSONObject(i).getString("t").equals(i_mangaName)) {
-					return jsonArray.getJSONObject(i).getString("i");
-				}
-			}
+			return jsonArray;
 		} catch (Exception e) {
+			e.printStackTrace();
 			return null;
 		}
-		return null;
 	}
 
 	private StringBuffer loadFile(BufferedReader i_bufferReader) {
@@ -92,28 +92,6 @@ public class MangaListenerCore {
 			return content;
 		} catch (Exception e) {
 			return null;
-		}
-	}
-
-	private String getLastChapter(StringBuffer i_buffer) {
-		JSONObject jsonData = new JSONObject(i_buffer.toString());
-		JSONArray jsonArray = (JSONArray) jsonData.getJSONArray("chapters").get(0);
-
-		return jsonArray.get(0).toString();
-	}
-
-	private boolean generateJsonMangaList(StringBuffer i_buffer) {
-		InputChecking.checkObjectInput(i_buffer, true, null, true, "i_buffer cannot be null.", null);
-
-		try (FileWriter file = new FileWriter("mangalist.json")) {
-
-			file.write(i_buffer.toString());
-			file.flush();
-
-			return true;
-
-		} catch (IOException e) {
-			return false;
 		}
 	}
 }
